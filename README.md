@@ -8,10 +8,10 @@ spectre build dev
 
 Controls:
 
-A/D - Yaw
-Up/Down - Pitch
-W/S - Throttle
-V/C - Toggle third person
+- A/D - Yaw
+- Up/Down - Pitch
+- W/S - Throttle
+- V/C - Toggle third person
 
 Requires SDL2 to be installed, only tested on Linux/MacOS.
 
