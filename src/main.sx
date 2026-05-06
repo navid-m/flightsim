@@ -102,6 +102,14 @@ fn get_camera_altitude() f64 = {
     return g_plane.altitude + 7.0
 }
 
+fn get_plane_overlay_x() i32 = {
+    return consts.SCREEN_WIDTH / (2 as i32) + (g_plane.bank * 34.0) as i32
+}
+
+fn get_plane_overlay_y(horizon: i32) i32 = {
+    return horizon + (132 as i32) - (g_plane.pitch * 120.0) as i32
+}
+
 fn load_texture(path: ref u8) ref void = trust {
     val surface: ref void = sdl.IMG_Load(path)
     if surface == none {
@@ -202,6 +210,36 @@ fn draw_sky_gradient(horizon: i32, heading: f64) void = trust {
     }
 }
 
+fn draw_cloud_bands(horizon: i32, heading: f64) void = trust {
+    val layer: mut i32 = 0 as i32
+    for layer < consts.CLOUD_BAND_COUNT {
+        val base_y: i32 =
+            horizon - (178 as i32)
+            + layer * (34 as i32)
+            + (math.sin(g_world_time * 0.25 + layer as f64 * 0.9) * 6.0) as i32
+        val x: mut i32 = -64 as i32
+        for x < consts.SCREEN_WIDTH + (64 as i32) {
+            val xf: f64 = x as f64
+            val density: f64 =
+                0.5 + 0.3 * math.sin(xf * 0.013 + heading * (0.30 + layer as f64 * 0.05))
+                + 0.2 * math.cos(xf * 0.021 - layer as f64 * 1.6 - g_world_time * 0.04)
+            if density > 0.60 {
+                val w: i32 = (18.0 + density * 44.0) as i32
+                val h: i32 = (6.0 + density * 8.0 + layer as f64) as i32
+                val y: i32 = base_y + (math.sin(xf * 0.039 + layer as f64) * 4.0) as i32
+                set_color(
+                    (34.0 + density * 20.0) as i32,
+                    (42.0 + density * 24.0) as i32,
+                    (70.0 + density * 36.0) as i32
+                )
+                fill_rect(x - w / (2 as i32), y, w, h)
+            }
+            x += 28 as i32
+        }
+        layer++
+    }
+}
+
 fn draw_mountains(horizon: i32, heading: f64) void = trust {
     val x0: mut i32 = 0 as i32
     for x0 < consts.SCREEN_WIDTH {
@@ -270,6 +308,33 @@ fn draw_stars(horizon: i32, heading: f64) void = trust {
     }
 }
 
+fn draw_engine_particles(horizon: i32) void = trust {
+    val cx: i32 = get_plane_overlay_x()
+    val cy: i32 = get_plane_overlay_y(horizon)
+    val speed_ratio: f64 = math.clamp01((g_plane.speed - consts.MIN_SPEED) / (consts.MAX_SPEED - consts.MIN_SPEED))
+    val i: mut i32 = 0 as i32
+    for i < consts.EXHAUST_PARTICLE_COUNT {
+        val cycle: i32 = (((g_world_time * (460.0 + speed_ratio * 180.0)) as i32) + i * (29 as i32)) % (100 as i32)
+        val age: f64 = cycle as f64 / 100.0
+        val side: mut i32 = 1
+        if i % (2 as i32) == (0 as i32) { side = -1 as i32 } 
+        val px: i32 =
+            cx + side * (28 as i32)
+            + (math.sin(g_world_time * 3.0 + i as f64) * (3.0 + speed_ratio * 5.0)) as i32
+        val py: i32 = cy + (14 as i32) + (age * (92.0 + speed_ratio * 34.0)) as i32
+        val radius: i32 = 1 as i32 + ((1.0 - age) * 3.0) as i32
+
+        if age < 0.35 {
+            draw_circle(px, py, radius, 255 as i32, 186 as i32, 90 as i32)
+        } elif age < 0.70 {
+            draw_circle(px, py, radius, 255 as i32, 138 as i32, 68 as i32)
+        } else {
+            draw_circle(px, py, radius, 208 as i32, 98 as i32, 52 as i32)
+        }
+        i++
+    }
+}
+
 fn render_ground(horizon: i32, cam_x: f64, cam_z: f64, cam_alt: f64, heading: f64, pitch: f64) void = trust {
     val forward_x: f64 = math.cos(heading)
     val forward_z: f64 = math.sin(heading)
@@ -311,16 +376,24 @@ fn render_ground(horizon: i32, cam_x: f64, cam_z: f64, cam_alt: f64, heading: f6
 
                 val dash_phase: i32 = (((wx as i32) + (200000 as i32)) / (140 as i32)) % (2 as i32)
                 if abs_runway_z < 4.0 && dash_phase == (0 as i32) {
-                    r = 212 as i32
-                    g = 212 as i32
-                    b = 192 as i32
+                    r = 224 as i32
+                    g = 220 as i32
+                    b = 196 as i32
+                } elif abs_runway_z < 7.0 && dash_phase == (0 as i32) {
+                    r = 134 as i32
+                    g = 132 as i32
+                    b = 120 as i32
                 }
 
                 val edge_phase: i32 = (((wx as i32) + (200000 as i32)) / (90 as i32)) % (2 as i32)
                 if abs_runway_z > 59.0 && abs_runway_z < 63.0 && edge_phase == (0 as i32) {
-                    r = 82 as i32
-                    g = 110 as i32
-                    b = 250 as i32
+                    r = 92 as i32
+                    g = 134 as i32
+                    b = 255 as i32
+                } elif abs_runway_z > 56.0 && abs_runway_z < 66.0 && edge_phase == (0 as i32) {
+                    r = 40 as i32
+                    g = 62 as i32
+                    b = 136 as i32
                 }
 
                 if wx > -980.0 && wx < -830.0 {
@@ -365,8 +438,8 @@ fn render_ground(horizon: i32, cam_x: f64, cam_z: f64, cam_alt: f64, heading: f6
 }
 
 fn render_plane_overlay(horizon: i32) void = trust {
-    val cx: i32 = consts.SCREEN_WIDTH / (2 as i32) + (g_plane.bank * 34.0) as i32
-    val cy: i32 = horizon + (132 as i32) - (g_plane.pitch * 120.0) as i32
+    val cx: i32 = get_plane_overlay_x()
+    val cy: i32 = get_plane_overlay_y(horizon)
     val sprite_size: i32 = 220 as i32
 
     g_rect.x = cx - sprite_size / (2 as i32)
@@ -582,6 +655,7 @@ pub fn main() i32 = trust {
                 val horizon: i32 = math.clamp(horizon0 as i64, 150, (consts.SCREEN_HEIGHT - (140 as i32)) as i64) as i32
 
                 draw_sky_gradient(horizon, get_camera_heading())
+                draw_cloud_bands(horizon, get_camera_heading())
                 draw_stars(horizon, get_camera_heading())
                 draw_mountains(horizon, get_camera_heading())
                 render_ground(
@@ -594,6 +668,7 @@ pub fn main() i32 = trust {
                 )
 
                 if g_view_third_person {
+                    draw_engine_particles(horizon)
                     render_plane_overlay(horizon)
                 } else {
                     render_cockpit()

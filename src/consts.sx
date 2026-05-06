@@ -1,7 +1,9 @@
 pub val SCREEN_WIDTH: i32 = 1280
 pub val SCREEN_HEIGHT: i32 = 720
-pub val STAR_COUNT: i32 = 96
+pub val STAR_COUNT: i32 = 120
 pub val GROUND_SEGMENT: i32 = 8
 pub val GROUND_ROW_STEP: i32 = 2
 pub val MIN_SPEED: f64 = 120.0
 pub val MAX_SPEED: f64 = 420.0
+pub val CLOUD_BAND_COUNT: i32 = 4
+pub val EXHAUST_PARTICLE_COUNT: i32 = 14
