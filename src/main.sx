@@ -1,9 +1,9 @@
-val allocators = use("std/allocators")
-val math = use("std/math")
+val allocators  = use("std/allocators")
+val math        = use("std/math")
 val math_static = use("std/math/static")
-val types = use("types.sx")
-val consts = use("consts.sx")
-val sdl = use("sdl.sx")
+val types       = use("types.sx")
+val consts      = use("consts.sx")
+val sdl         = use("sdl.sx")
 
 val g_renderer: mut ref void = none
 val g_rect: mut ref sdl.SDL_Rect = none
