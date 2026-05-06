@@ -379,7 +379,6 @@ fn render_plane_overlay(horizon: i32) void = trust {
 fn render_cockpit() void = trust {
     val sprite_height: i32 = consts.SCREEN_HEIGHT
     val sprite_width: i32 = ((sprite_height as f64) * 600.0 / 327.0) as i32
-
     g_rect.x = (consts.SCREEN_WIDTH - sprite_width) / (2 as i32)
     g_rect.y = consts.SCREEN_HEIGHT - sprite_height
     g_rect.w = sprite_width
