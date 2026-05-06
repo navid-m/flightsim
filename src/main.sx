@@ -8,6 +8,7 @@ val mem         = use("mem.sx")
 
 val g_renderer: mut ref void = none
 val g_rect: mut ref sdl.SDL_Rect = none
+val g_plane_sprite: mut ref void = none
 val g_plane: mut types.Plane = {
     x: -620.0,
     z: 0.0,
@@ -98,6 +99,29 @@ fn get_camera_altitude() f64 = {
         return g_plane.altitude + 34.0
     }
     return g_plane.altitude + 7.0
+}
+
+fn load_plane_sprite() bool = trust {
+    val surface: ref void = sdl.IMG_Load("assets/back.png")
+    if surface == none {
+        return false
+    }
+
+    val texture: ref void = sdl.SDL_CreateTextureFromSurface(g_renderer, surface)
+    sdl.SDL_FreeSurface(surface)
+    if texture == none {
+        return false
+    }
+
+    g_plane_sprite = texture
+    return true
+}
+
+fn release_plane_sprite() void = {
+    if g_plane_sprite != none {
+        trust sdl.SDL_DestroyTexture(g_plane_sprite)
+        g_plane_sprite = none
+    }
 }
 
 fn draw_sky_gradient() void = trust {
@@ -295,21 +319,14 @@ fn render_ground(horizon: i32, cam_x: f64, cam_z: f64, cam_alt: f64, heading: f6
 
 fn render_plane_overlay(horizon: i32) void = trust {
     val cx: i32 = consts.SCREEN_WIDTH / (2 as i32) + (g_plane.bank * 34.0) as i32
-    val cy: i32 = horizon + (136 as i32) - (g_plane.pitch * 120.0) as i32
-    val wing_slope: i32 = (g_plane.bank * 40.0) as i32
-    val tail_shift: i32 = (g_plane.pitch * 18.0) as i32
+    val cy: i32 = horizon + (132 as i32) - (g_plane.pitch * 120.0) as i32
+    val sprite_size: i32 = 220 as i32
 
-    set_color(235 as i32, 238 as i32, 246 as i32)
-    draw_line(cx - (66 as i32), cy + wing_slope / (2 as i32), cx + (66 as i32), cy - wing_slope / (2 as i32))
-    draw_line(cx, cy - (34 as i32) - tail_shift, cx, cy + (36 as i32))
-    draw_line(cx - (24 as i32), cy + (22 as i32), cx + (24 as i32), cy + (22 as i32))
-    draw_line(cx - (12 as i32), cy - (18 as i32), cx + (12 as i32), cy - (18 as i32))
-
-    set_color(110 as i32, 170 as i32, 255 as i32)
-    fill_rect(cx - (3 as i32), cy - (40 as i32) - tail_shift, 6 as i32, 6 as i32)
-
-    set_color(255 as i32, 166 as i32, 76 as i32)
-    fill_rect(cx - (4 as i32), cy + (36 as i32), 8 as i32, 10 as i32)
+    g_rect.x = cx - sprite_size / (2 as i32)
+    g_rect.y = cy - sprite_size / (2 as i32)
+    g_rect.w = sprite_size
+    g_rect.h = sprite_size
+    sdl.SDL_RenderCopy(g_renderer, g_plane_sprite, none as ref sdl.SDL_Rect, g_rect)
 }
 
 fn render_cockpit() void = trust {
@@ -479,15 +496,25 @@ pub fn main() i32 = trust {
         return 1 as i32
     }
 
+    g_renderer = renderer
+    if !load_plane_sprite() {
+        g_renderer = none
+        sdl.SDL_DestroyRenderer(renderer)
+        sdl.SDL_DestroyWindow(window)
+        sdl.SDL_Quit()
+        return 1 as i32
+    }
+
     match mem.create_scratch_buffers() {
         none => {
+            release_plane_sprite()
+            g_renderer = none
             sdl.SDL_DestroyRenderer(renderer)
             sdl.SDL_DestroyWindow(window)
             sdl.SDL_Quit()
             return 1 as i32
         }
         some scratch => {
-            g_renderer = renderer
             g_rect = scratch.rect
             val evt: ref sdl.SDL_Event = scratch.evt
 
@@ -553,6 +580,8 @@ pub fn main() i32 = trust {
             }
 
             g_rect = none
+            release_plane_sprite()
+            g_renderer = none
             allocators.Arena.free(scratch.arena)
             sdl.SDL_DestroyRenderer(renderer)
             sdl.SDL_DestroyWindow(window)

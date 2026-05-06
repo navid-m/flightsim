@@ -1,6 +1,8 @@
 extern "SDL.h"
+extern "SDL_image.h"
 
 link "-lSDL2"
+link "-lSDL2_image"
 
 pub extern type SDL_Rect = {
     x: mut i32
@@ -25,7 +27,12 @@ pub extern (C, header) fn SDL_RenderClear(renderer: ref void) i32 = "SDL_RenderC
 pub extern (C, header) fn SDL_RenderFillRect(renderer: ref void, rect: ref SDL_Rect) i32 = "SDL_RenderFillRect"
 pub extern (C, header) fn SDL_RenderDrawLine(renderer: ref void, x1: i32, y1: i32, x2: i32, y2: i32) i32 = "SDL_RenderDrawLine"
 pub extern (C, header) fn SDL_RenderDrawPoint(renderer: ref void, x: i32, y: i32) i32 = "SDL_RenderDrawPoint"
+pub extern (C, header) fn SDL_RenderCopy(renderer: ref void, texture: ref void, srcrect: ref SDL_Rect, dstrect: ref SDL_Rect) i32 = "SDL_RenderCopy"
+pub extern (C, header) fn SDL_CreateTextureFromSurface(renderer: ref void, surface: ref void) ref void = "SDL_CreateTextureFromSurface"
+pub extern (C, header) fn SDL_FreeSurface(surface: ref void) void = "SDL_FreeSurface"
+pub extern (C, header) fn SDL_DestroyTexture(texture: ref void) void = "SDL_DestroyTexture"
 pub extern (C, header) fn SDL_RenderPresent(renderer: ref void) void = "SDL_RenderPresent"
 pub extern (C, header) fn SDL_DestroyRenderer(renderer: ref void) void = "SDL_DestroyRenderer"
 pub extern (C, header) fn SDL_DestroyWindow(window: ref void) void = "SDL_DestroyWindow"
 pub extern (C, header) fn SDL_Quit() void = "SDL_Quit"
+pub extern (C, header) fn IMG_Load(file: ref u8) ref void = "IMG_Load"
