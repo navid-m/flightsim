@@ -532,8 +532,8 @@ pub fn main() i32 = trust {
         }
         some scratch => {
             g_rect = scratch.rect
+         
             val evt: ref sdl.SDL_Event = scratch.evt
-
             val quit: mut bool = false
             val last_ticks: mut u32 = sdl.SDL_GetTicks()
 
