@@ -211,7 +211,7 @@ fn draw_sky_gradient(horizon: i32, heading: f64) void = trust {
 }
 
 fn draw_cloud_bands(horizon: i32, heading: f64) void = trust {
-    val layer: mut i32 = 0 as i32
+    val layer: mut i32 = 0
     for layer < consts.CLOUD_BAND_COUNT {
         val base_y: i32 =
             horizon - (178 as i32)
@@ -241,7 +241,7 @@ fn draw_cloud_bands(horizon: i32, heading: f64) void = trust {
 }
 
 fn draw_mountains(horizon: i32, heading: f64) void = trust {
-    val x0: mut i32 = 0 as i32
+    val x0: mut i32 = 0
     for x0 < consts.SCREEN_WIDTH {
         val xf: f64 = x0 as f64
         val crest0: i32 =
