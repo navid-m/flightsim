@@ -50,20 +50,20 @@ val g_world_time: mut f64 = 0.0
 val g_view_third_person: mut bool = true
 val g_toggle_latch: mut bool = false
 
-fn set_color(r: i32, g: i32, b: i32) void = trust {
+fn set_color(r: i32, g: i32, b: i32) void = {
     val rr: u8 = (math.clamp(r as i64, 0, 255) as i32) as u8
     val gg: u8 = (math.clamp(g as i64, 0, 255) as i32) as u8
     val bb: u8 = (math.clamp(b as i64, 0, 255) as i32) as u8
-    SDL_SetRenderDrawColor(g_renderer, rr, gg, bb, 255 as u8)
+    trust SDL_SetRenderDrawColor(g_renderer, rr, gg, bb, 255 as u8)
 }
 
-fn fill_rect(x: i32, y: i32, w: i32, h: i32) void = trust {
+fn fill_rect(x: i32, y: i32, w: i32, h: i32) void = {
     if w <= (0 as i32) || h <= (0 as i32) { return }
     g_rect.x = x
     g_rect.y = y
     g_rect.w = w
     g_rect.h = h
-    SDL_RenderFillRect(g_renderer, g_rect)
+    trust SDL_RenderFillRect(g_renderer, g_rect)
 }
 
 fn draw_line(x1: i32, y1: i32, x2: i32, y2: i32) void = trust {
