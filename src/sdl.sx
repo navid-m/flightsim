@@ -1,0 +1,31 @@
+extern "SDL.h"
+
+link "-lSDL2"
+
+pub extern type SDL_Rect = {
+    x: mut i32
+    y: mut i32
+    w: mut i32
+    h: mut i32
+}
+
+pub extern type SDL_Event = {
+    type_value: mut u32
+    padding: mut [52]u8
+}
+
+pub extern (C, header) fn SDL_Init(flags: u32) i32 = "SDL_Init"
+pub extern (C, header) fn SDL_CreateWindow(title: ref u8, x: i32, y: i32, w: i32, h: i32, flags: u32) ref void = "SDL_CreateWindow"
+pub extern (C, header) fn SDL_CreateRenderer(window: ref void, index: i32, flags: u32) ref void = "SDL_CreateRenderer"
+pub extern (C, header) fn SDL_PollEvent(event: ref SDL_Event) i32 = "SDL_PollEvent"
+pub extern (C, header) fn SDL_GetTicks() u32 = "SDL_GetTicks"
+pub extern (C, header) fn SDL_GetKeyboardState(numkeys: ref i32) ref u8 = "SDL_GetKeyboardState"
+pub extern (C, header) fn SDL_SetRenderDrawColor(renderer: ref void, r: u8, g: u8, b: u8, a: u8) i32 = "SDL_SetRenderDrawColor"
+pub extern (C, header) fn SDL_RenderClear(renderer: ref void) i32 = "SDL_RenderClear"
+pub extern (C, header) fn SDL_RenderFillRect(renderer: ref void, rect: ref SDL_Rect) i32 = "SDL_RenderFillRect"
+pub extern (C, header) fn SDL_RenderDrawLine(renderer: ref void, x1: i32, y1: i32, x2: i32, y2: i32) i32 = "SDL_RenderDrawLine"
+pub extern (C, header) fn SDL_RenderDrawPoint(renderer: ref void, x: i32, y: i32) i32 = "SDL_RenderDrawPoint"
+pub extern (C, header) fn SDL_RenderPresent(renderer: ref void) void = "SDL_RenderPresent"
+pub extern (C, header) fn SDL_DestroyRenderer(renderer: ref void) void = "SDL_DestroyRenderer"
+pub extern (C, header) fn SDL_DestroyWindow(window: ref void) void = "SDL_DestroyWindow"
+pub extern (C, header) fn SDL_Quit() void = "SDL_Quit"

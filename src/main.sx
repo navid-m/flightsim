@@ -1,43 +1,12 @@
-extern "SDL.h"
-
 val allocators = use("std/allocators")
 val math = use("std/math")
 val math_static = use("std/math/static")
 val types = use("types.sx")
 val consts = use("consts.sx")
-
-link "-lSDL2"
-
-extern type SDL_Rect = {
-    x: mut i32
-    y: mut i32
-    w: mut i32
-    h: mut i32
-}
-
-extern type SDL_Event = {
-    type_value: mut u32
-    padding: mut [52]u8
-}
-
-extern (C, header) fn SDL_Init(flags: u32) i32 = "SDL_Init"
-extern (C, header) fn SDL_CreateWindow(title: ref u8, x: i32, y: i32, w: i32, h: i32, flags: u32) ref void = "SDL_CreateWindow"
-extern (C, header) fn SDL_CreateRenderer(window: ref void, index: i32, flags: u32) ref void = "SDL_CreateRenderer"
-extern (C, header) fn SDL_PollEvent(event: ref SDL_Event) i32 = "SDL_PollEvent"
-extern (C, header) fn SDL_GetTicks() u32 = "SDL_GetTicks"
-extern (C, header) fn SDL_GetKeyboardState(numkeys: ref i32) ref u8 = "SDL_GetKeyboardState"
-extern (C, header) fn SDL_SetRenderDrawColor(renderer: ref void, r: u8, g: u8, b: u8, a: u8) i32 = "SDL_SetRenderDrawColor"
-extern (C, header) fn SDL_RenderClear(renderer: ref void) i32 = "SDL_RenderClear"
-extern (C, header) fn SDL_RenderFillRect(renderer: ref void, rect: ref SDL_Rect) i32 = "SDL_RenderFillRect"
-extern (C, header) fn SDL_RenderDrawLine(renderer: ref void, x1: i32, y1: i32, x2: i32, y2: i32) i32 = "SDL_RenderDrawLine"
-extern (C, header) fn SDL_RenderDrawPoint(renderer: ref void, x: i32, y: i32) i32 = "SDL_RenderDrawPoint"
-extern (C, header) fn SDL_RenderPresent(renderer: ref void) void = "SDL_RenderPresent"
-extern (C, header) fn SDL_DestroyRenderer(renderer: ref void) void = "SDL_DestroyRenderer"
-extern (C, header) fn SDL_DestroyWindow(window: ref void) void = "SDL_DestroyWindow"
-extern (C, header) fn SDL_Quit() void = "SDL_Quit"
+val sdl = use("sdl.sx")
 
 val g_renderer: mut ref void = none
-val g_rect: mut ref SDL_Rect = none
+val g_rect: mut ref sdl.SDL_Rect = none
 val g_plane: mut types.Plane = {
     x: -620.0,
     z: 0.0,
@@ -47,29 +16,30 @@ val g_plane: mut types.Plane = {
     bank: 0.0,
     speed: 235.0
 }
+
 val g_world_time: mut f64 = 0.0
 val g_view_third_person: mut bool = true
 val g_toggle_latch: mut bool = false
 
 type ScratchBuffers = {
     arena: allocators.Arena
-    rect: ref SDL_Rect
-    evt: ref SDL_Event
+    rect: ref sdl.SDL_Rect
+    evt: ref sdl.SDL_Event
 }
 
 fn create_scratch_buffers() option[ScratchBuffers] = trust {
-    match allocators.Arena.new((@sizeof(SDL_Rect) + @sizeof(SDL_Event) + 16) as usize) {
+    match allocators.Arena.new((@sizeof(sdl.SDL_Rect) + @sizeof(sdl.SDL_Event) + 16) as usize) {
         err _ => {
             return none
         }
         ok arena => {
-            match allocators.Arena.alloc(arena, @sizeof(SDL_Rect) as usize) {
+            match allocators.Arena.alloc(arena, @sizeof(sdl.SDL_Rect) as usize) {
                 none => {
                     allocators.Arena.free(arena)
                     return none
                 }
                 some rect_mem => {
-                    match allocators.Arena.alloc(arena, @sizeof(SDL_Event) as usize) {
+                    match allocators.Arena.alloc(arena, @sizeof(sdl.SDL_Event) as usize) {
                         none => {
                             allocators.Arena.free(arena)
                             return none
@@ -77,8 +47,8 @@ fn create_scratch_buffers() option[ScratchBuffers] = trust {
                         some evt_mem => {
                             return some {
                                 arena: arena,
-                                rect: rect_mem as ref SDL_Rect,
-                                evt: evt_mem as ref SDL_Event
+                                rect: rect_mem as ref sdl.SDL_Rect,
+                                evt: evt_mem as ref sdl.SDL_Event
                             }
                         }
                     }
@@ -92,7 +62,7 @@ fn set_color(r: i32, g: i32, b: i32) void = {
     val rr: u8 = (math.clamp(r as i64, 0, 255) as i32) as u8
     val gg: u8 = (math.clamp(g as i64, 0, 255) as i32) as u8
     val bb: u8 = (math.clamp(b as i64, 0, 255) as i32) as u8
-    trust SDL_SetRenderDrawColor(g_renderer, rr, gg, bb, 255 as u8)
+    trust sdl.SDL_SetRenderDrawColor(g_renderer, rr, gg, bb, 255 as u8)
 }
 
 fn fill_rect(x: i32, y: i32, w: i32, h: i32) void = {
@@ -101,11 +71,11 @@ fn fill_rect(x: i32, y: i32, w: i32, h: i32) void = {
     g_rect.y = y
     g_rect.w = w
     g_rect.h = h
-    trust SDL_RenderFillRect(g_renderer, g_rect)
+    trust sdl.SDL_RenderFillRect(g_renderer, g_rect)
 }
 
 fn draw_line(x1: i32, y1: i32, x2: i32, y2: i32) void = trust {
-    SDL_RenderDrawLine(g_renderer, x1, y1, x2, y2)
+    sdl.SDL_RenderDrawLine(g_renderer, x1, y1, x2, y2)
 }
 
 fn draw_circle(cx: i32, cy: i32, radius: i32, r: i32, g: i32, b: i32) void = trust {
@@ -115,7 +85,7 @@ fn draw_circle(cx: i32, cy: i32, radius: i32, r: i32, g: i32, b: i32) void = tru
         val xx: mut i32 = 0 - radius
         for xx <= radius {
             if xx * xx + yy * yy <= radius * radius {
-                SDL_RenderDrawPoint(g_renderer, cx + xx, cy + yy)
+                sdl.SDL_RenderDrawPoint(g_renderer, cx + xx, cy + yy)
             }
             xx++
         }
@@ -253,12 +223,12 @@ fn draw_stars_and_moon(horizon: i32, heading: f64) void = trust {
                 set_color(bright, bright, (220 as i32) + bright / (6 as i32))
             }
 
-            SDL_RenderDrawPoint(g_renderer, px0, base_y)
+            sdl.SDL_RenderDrawPoint(g_renderer, px0, base_y)
             if i % (6 as i32) == (0 as i32) {
-                SDL_RenderDrawPoint(g_renderer, px0 + (1 as i32), base_y)
+                sdl.SDL_RenderDrawPoint(g_renderer, px0 + (1 as i32), base_y)
             }
             if i % (11 as i32) == (0 as i32) {
-                SDL_RenderDrawPoint(g_renderer, px0, base_y + (1 as i32))
+                sdl.SDL_RenderDrawPoint(g_renderer, px0, base_y + (1 as i32))
             }
         }
         i++
@@ -498,11 +468,11 @@ fn update_plane(dt: f64, keys: ref u8) void = trust {
 }
 
 pub fn main() i32 = trust {
-    if SDL_Init(C.SDL_INIT_VIDEO) != 0 {
+    if sdl.SDL_Init(C.SDL_INIT_VIDEO) != 0 {
         return 1 as i32
     }
 
-    val window: ref void = SDL_CreateWindow(
+    val window: ref void = sdl.SDL_CreateWindow(
         "flightsim",
         C.SDL_WINDOWPOS_CENTERED,
         C.SDL_WINDOWPOS_CENTERED,
@@ -511,35 +481,35 @@ pub fn main() i32 = trust {
         0 as u32
     )
     if window == none {
-        SDL_Quit()
+        sdl.SDL_Quit()
         return 1 as i32
     }
 
-    val renderer: ref void = SDL_CreateRenderer(
+    val renderer: ref void = sdl.SDL_CreateRenderer(
         window,
         -1 as i32,
         C.SDL_RENDERER_ACCELERATED | C.SDL_RENDERER_PRESENTVSYNC
     )
     if renderer == none {
-        SDL_DestroyWindow(window)
-        SDL_Quit()
+        sdl.SDL_DestroyWindow(window)
+        sdl.SDL_Quit()
         return 1 as i32
     }
 
     match create_scratch_buffers() {
         none => {
-            SDL_DestroyRenderer(renderer)
-            SDL_DestroyWindow(window)
-            SDL_Quit()
+            sdl.SDL_DestroyRenderer(renderer)
+            sdl.SDL_DestroyWindow(window)
+            sdl.SDL_Quit()
             return 1 as i32
         }
         some scratch => {
             g_renderer = renderer
             g_rect = scratch.rect
-            val evt: ref SDL_Event = scratch.evt
+            val evt: ref sdl.SDL_Event = scratch.evt
 
             val quit: mut bool = false
-            val last_ticks: mut u32 = SDL_GetTicks()
+            val last_ticks: mut u32 = sdl.SDL_GetTicks()
 
             for {
                 if quit {
@@ -547,7 +517,7 @@ pub fn main() i32 = trust {
                 }
 
                 for {
-                    if SDL_PollEvent(evt) != 0 {
+                    if sdl.SDL_PollEvent(evt) != 0 {
                         if evt.type_value == C.SDL_QUIT {
                             quit = true
                         }
@@ -556,13 +526,13 @@ pub fn main() i32 = trust {
                     }
                 }
 
-                val keys: ref u8 = SDL_GetKeyboardState(none as ref i32)
+                val keys: ref u8 = sdl.SDL_GetKeyboardState(none as ref i32)
                 val key_escape: u8 = @load(@ptradd(keys, (C.SDL_SCANCODE_ESCAPE) * @sizeof(u8)))
                 if key_escape != 0 {
                     quit = true
                 }
 
-                val ticks: u32 = SDL_GetTicks()
+                val ticks: u32 = sdl.SDL_GetTicks()
                 val dt_raw: f64 = ((ticks - last_ticks) as f64) / 1000.0
                 val dt: f64 = math.fclamp(dt_raw, 0.0, 0.05)
                 last_ticks = ticks
@@ -570,8 +540,8 @@ pub fn main() i32 = trust {
 
                 update_plane(dt, keys)
 
-                SDL_SetRenderDrawColor(renderer, 0 as u8, 0 as u8, 0 as u8, 255 as u8)
-                SDL_RenderClear(renderer)
+                sdl.SDL_SetRenderDrawColor(renderer, 0 as u8, 0 as u8, 0 as u8, 255 as u8)
+                sdl.SDL_RenderClear(renderer)
 
                 val cam_pitch: f64 = get_camera_pitch()
                 val horizon0: i32 = consts.SCREEN_HEIGHT / (2 as i32) + (34 as i32) - (cam_pitch * 230.0) as i32
@@ -596,14 +566,14 @@ pub fn main() i32 = trust {
                 }
 
                 render_hud()
-                SDL_RenderPresent(renderer)
+                sdl.SDL_RenderPresent(renderer)
             }
 
             g_rect = none
             allocators.Arena.free(scratch.arena)
-            SDL_DestroyRenderer(renderer)
-            SDL_DestroyWindow(window)
-            SDL_Quit()
+            sdl.SDL_DestroyRenderer(renderer)
+            sdl.SDL_DestroyWindow(window)
+            sdl.SDL_Quit()
             return 0 as i32
         }
     }
