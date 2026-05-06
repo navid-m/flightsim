@@ -1,6 +1,6 @@
 ## flightsim
 
-To build, install the Spectre Programming Language toolchain, and run:
+To build, install the <a href="https://github.com/spectrelang/spectre">Spectre Programming Language</a> toolchain, and run:
 
 ```
 spectre build dev
