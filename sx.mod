@@ -7,5 +7,6 @@ build release {
 }
 
 build dev {
+    flags "--alt=clang --inc-path=/usr/include/SDL2/"
     output "./flightsim-dev"
 }

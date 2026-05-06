@@ -1,15 +1,17 @@
 extern "SDL.h"
 
+val math = use("std/math")
+val math_static = use("std/math/static")
+
 link "-lSDL2"
-link "-lm"
 
 val SCREEN_WIDTH: i32 = 1280
 val SCREEN_HEIGHT: i32 = 720
 val STAR_COUNT: i32 = 96
 val GROUND_SEGMENT: i32 = 8
 val GROUND_ROW_STEP: i32 = 2
-val MIN_SPEED: f32 = 120.0
-val MAX_SPEED: f32 = 420.0
+val MIN_SPEED: f64 = 120.0
+val MAX_SPEED: f64 = 420.0
 
 extern type SDL_Rect = {
     x: mut i32
@@ -24,13 +26,13 @@ extern type SDL_Event = {
 }
 
 type Plane = {
-    x: mut f32
-    z: mut f32
-    altitude: mut f32
-    heading: mut f32
-    pitch: mut f32
-    bank: mut f32
-    speed: mut f32
+    x: mut f64
+    z: mut f64
+    altitude: mut f64
+    heading: mut f64
+    pitch: mut f64
+    bank: mut f64
+    speed: mut f64
 }
 
 extern (C, header) fn SDL_Init(flags: u32) i32 = "SDL_Init"
@@ -49,10 +51,6 @@ extern (C, header) fn SDL_DestroyRenderer(renderer: ref void) void = "SDL_Destro
 extern (C, header) fn SDL_DestroyWindow(window: ref void) void = "SDL_DestroyWindow"
 extern (C, header) fn SDL_Quit() void = "SDL_Quit"
 
-extern (C) fn cosf(x: f32) f32 = "cosf"
-extern (C) fn sinf(x: f32) f32 = "sinf"
-extern (C) fn fabsf(x: f32) f32 = "fabsf"
-
 val g_renderer: mut ref void = none
 val g_rect: mut ref SDL_Rect = none
 val g_plane: mut Plane = {
@@ -64,34 +62,19 @@ val g_plane: mut Plane = {
     bank: 0.0,
     speed: 235.0
 }
-val g_world_time: mut f32 = 0.0
+val g_world_time: mut f64 = 0.0
 val g_view_third_person: mut bool = true
 val g_toggle_latch: mut bool = false
 
-fn clampf(v: f32, lo: f32, hi: f32) f32 = {
-    if v < lo { return lo }
-    if v > hi { return hi }
-    return v
-}
-
-fn clampi(v: i32, lo: i32, hi: i32) i32 = {
-    if v < lo { return lo }
-    if v > hi { return hi }
-    return v
-}
-
 fn set_color(r: i32, g: i32, b: i32) void = trust {
-    SDL_SetRenderDrawColor(
-        g_renderer,
-        clampi(r, 0, 255) as u8,
-        clampi(g, 0, 255) as u8,
-        clampi(b, 0, 255) as u8,
-        255 as u8
-    )
+    val rr: u8 = (math.clamp(r as i64, 0, 255) as i32) as u8
+    val gg: u8 = (math.clamp(g as i64, 0, 255) as i32) as u8
+    val bb: u8 = (math.clamp(b as i64, 0, 255) as i32) as u8
+    SDL_SetRenderDrawColor(g_renderer, rr, gg, bb, 255 as u8)
 }
 
 fn fill_rect(x: i32, y: i32, w: i32, h: i32) void = trust {
-    if w <= 0 || h <= 0 { return }
+    if w <= (0 as i32) || h <= (0 as i32) { return }
     g_rect.x = x
     g_rect.y = y
     g_rect.w = w
@@ -105,9 +88,9 @@ fn draw_line(x1: i32, y1: i32, x2: i32, y2: i32) void = trust {
 
 fn draw_circle(cx: i32, cy: i32, radius: i32, r: i32, g: i32, b: i32) void = trust {
     set_color(r, g, b)
-    val yy: mut i32 = -radius
+    val yy: mut i32 = 0 - radius
     for yy <= radius {
-        val xx: mut i32 = -radius
+        val xx: mut i32 = 0 - radius
         for xx <= radius {
             if xx * xx + yy * yy <= radius * radius {
                 SDL_RenderDrawPoint(g_renderer, cx + xx, cy + yy)
@@ -119,41 +102,42 @@ fn draw_circle(cx: i32, cy: i32, radius: i32, r: i32, g: i32, b: i32) void = tru
 }
 
 fn wrap_heading() void = {
-    if g_plane.heading > 6.28318 {
-        g_plane.heading -= 6.28318
-    } elif g_plane.heading < -6.28318 {
-        g_plane.heading += 6.28318
+    val wrapped: f64 = math.normalize_radians(g_plane.heading)
+    if wrapped > math_static.PI {
+        g_plane.heading = wrapped - math_static.TAU
+        return
     }
+    g_plane.heading = wrapped
 }
 
-fn get_camera_heading() f32 = {
+fn get_camera_heading() f64 = {
     return g_plane.heading
 }
 
-fn get_camera_pitch() f32 = {
+fn get_camera_pitch() f64 = {
     if g_view_third_person {
         return g_plane.pitch - 0.14
     }
     return g_plane.pitch
 }
 
-fn get_camera_x() f32 = trust {
-    val forward_x: f32 = cosf(g_plane.heading)
+fn get_camera_x() f64 = {
+    val forward_x: f64 = math.cos(g_plane.heading)
     if g_view_third_person {
         return g_plane.x - forward_x * 120.0
     }
     return g_plane.x + forward_x * 14.0
 }
 
-fn get_camera_z() f32 = trust {
-    val forward_z: f32 = sinf(g_plane.heading)
+fn get_camera_z() f64 = {
+    val forward_z: f64 = math.sin(g_plane.heading)
     if g_view_third_person {
         return g_plane.z - forward_z * 120.0
     }
     return g_plane.z + forward_z * 14.0
 }
 
-fn get_camera_altitude() f32 = {
+fn get_camera_altitude() f64 = {
     if g_view_third_person {
         return g_plane.altitude + 34.0
     }
@@ -161,190 +145,191 @@ fn get_camera_altitude() f32 = {
 }
 
 fn draw_sky_gradient() void = trust {
-    val y: mut i32 = 0
+    val y: mut i32 = 0 as i32
     for y < SCREEN_HEIGHT {
-        val t: f32 = (y as f32) / (SCREEN_HEIGHT as f32)
+        val t: f64 = (y as f64) / (SCREEN_HEIGHT as f64)
         val r: i32 = (6.0 + t * 18.0) as i32
         val g: i32 = (10.0 + t * 16.0) as i32
         val b: i32 = (22.0 + t * 42.0) as i32
         set_color(r, g, b)
-        fill_rect(0, y, SCREEN_WIDTH, 4)
-        y += 4
+        fill_rect(0 as i32, y, SCREEN_WIDTH, 4 as i32)
+        y += 4 as i32
     }
 }
 
-fn draw_mountains(horizon: i32, heading: f32) void = trust {
-    val x0: mut i32 = 0
+fn draw_mountains(horizon: i32, heading: f64) void = trust {
+    val x0: mut i32 = 0 as i32
     for x0 < SCREEN_WIDTH {
-        val xf: f32 = x0 as f32
+        val xf: f64 = x0 as f64
         val crest0: i32 =
-            horizon - 86
-            - (sinf(xf * 0.010 + heading * 0.45) * 24.0) as i32
-            - (cosf(xf * 0.024 - heading * 0.22) * 12.0) as i32
-        set_color(9, 10, 20)
-        draw_line(x0, crest0, x0, horizon + 20)
-        draw_line(x0 + 1, crest0, x0 + 1, horizon + 20)
-        x0 += 2
+            horizon - (86 as i32)
+            - (math.sin(xf * 0.010 + heading * 0.45) * 24.0) as i32
+            - (math.cos(xf * 0.024 - heading * 0.22) * 12.0) as i32
+        set_color(9 as i32, 10 as i32, 20 as i32)
+        draw_line(x0, crest0, x0, horizon + (20 as i32))
+        draw_line(x0 + (1 as i32), crest0, x0 + (1 as i32), horizon + (20 as i32))
+        x0 += 2 as i32
     }
 
-    val x1: mut i32 = 0
+    val x1: mut i32 = 0 as i32
     for x1 < SCREEN_WIDTH {
-        val xf1: f32 = x1 as f32
+        val xf1: f64 = x1 as f64
         val crest1: i32 =
-            horizon - 40
-            - (sinf(xf1 * 0.014 + heading * 0.82) * 16.0) as i32
-            - (cosf(xf1 * 0.037 + heading * 0.41) * 7.0) as i32
-        set_color(16, 18, 30)
-        draw_line(x1, crest1, x1, horizon + 26)
-        draw_line(x1 + 1, crest1, x1 + 1, horizon + 26)
-        x1 += 2
+            horizon - (40 as i32)
+            - (math.sin(xf1 * 0.014 + heading * 0.82) * 16.0) as i32
+            - (math.cos(xf1 * 0.037 + heading * 0.41) * 7.0) as i32
+        set_color(16 as i32, 18 as i32, 30 as i32)
+        draw_line(x1, crest1, x1, horizon + (26 as i32))
+        draw_line(x1 + (1 as i32), crest1, x1 + (1 as i32), horizon + (26 as i32))
+        x1 += 2 as i32
     }
 }
 
-fn draw_stars_and_moon(horizon: i32, heading: f32) void = trust {
+fn draw_stars_and_moon(horizon: i32, heading: f64) void = trust {
     val moon_shift: i32 = (heading * 40.0) as i32
-    val moon_x: i32 = SCREEN_WIDTH - 220 - moon_shift / 3
-    val moon_y: i32 = 112
+    val moon_x: i32 = SCREEN_WIDTH - (220 as i32) - moon_shift / (3 as i32)
+    val moon_y: i32 = 112 as i32
 
-    draw_circle(moon_x, moon_y, 38, 160, 170, 215)
-    draw_circle(moon_x, moon_y, 30, 205, 212, 238)
-    draw_circle(moon_x + 11, moon_y - 8, 8, 180, 188, 212)
+    draw_circle(moon_x, moon_y, 38 as i32, 160 as i32, 170 as i32, 215 as i32)
+    draw_circle(moon_x, moon_y, 30 as i32, 205 as i32, 212 as i32, 238 as i32)
+    draw_circle(moon_x + (11 as i32), moon_y - (8 as i32), 8 as i32, 180 as i32, 188 as i32, 212 as i32)
 
-    val glow_y: mut i32 = horizon - 32
-    for glow_y < horizon + 10 {
+    val glow_y: mut i32 = horizon - (32 as i32)
+    for glow_y < horizon + (10 as i32) {
         val dist: i32 = glow_y - horizon
-        val strength: i32 = 36 - dist * dist / 18
-        if strength > 0 {
-            set_color(22 + strength / 4, 18 + strength / 3, 38 + strength / 2)
-            fill_rect(0, glow_y, SCREEN_WIDTH, 2)
+        val strength: i32 = (36 as i32) - dist * dist / (18 as i32)
+        if strength > (0 as i32) {
+            set_color(
+                (22 as i32) + strength / (4 as i32),
+                (18 as i32) + strength / (3 as i32),
+                (38 as i32) + strength / (2 as i32)
+            )
+            fill_rect(0 as i32, glow_y, SCREEN_WIDTH, 2 as i32)
         }
-        glow_y += 2
+        glow_y += 2 as i32
     }
 
-    val i: mut i32 = 0
+    val i: mut i32 = 0 as i32
     for i < STAR_COUNT {
-        val base_x: i32 = (((i * 197) + ((i * i) / 7) + 73) % SCREEN_WIDTH)
-        val base_y: i32 = 24 + (((i * 151) + ((i * 19) % 173)) % (SCREEN_HEIGHT / 2 - 72))
-        val twinkle: i32 = ((((g_world_time * 18.0) as i32) + i * 13) % 29)
+        val base_x: i32 = ((i * (197 as i32)) + ((i * i) / (7 as i32)) + (73 as i32)) % SCREEN_WIDTH
+        val base_y: i32 = (24 as i32) + (((i * (151 as i32)) + ((i * (19 as i32)) % (173 as i32))) % (SCREEN_HEIGHT / (2 as i32) - (72 as i32)))
+        val twinkle: i32 = (((g_world_time * 18.0) as i32) + i * (13 as i32)) % (29 as i32)
 
         val px0: mut i32 = base_x - moon_shift
-        for px0 < -4 {
-            px0 += SCREEN_WIDTH + 8
+        for px0 < (0 - (4 as i32)) {
+            px0 += SCREEN_WIDTH + (8 as i32)
         }
-        for px0 >= SCREEN_WIDTH + 4 {
-            px0 -= SCREEN_WIDTH + 8
+        for px0 >= SCREEN_WIDTH + (4 as i32) {
+            px0 -= SCREEN_WIDTH + (8 as i32)
         }
 
-        if base_y < horizon - 10 {
-            val bright: i32 = 110 + ((i * 41) % 115)
-            val pulse: i32 = 0
-            if twinkle < 4 {
-                set_color(bright + 48, bright + 40, 255)
+        if base_y < horizon - (10 as i32) {
+            val bright: i32 = (110 as i32) + ((i * (41 as i32)) % (115 as i32))
+            if twinkle < (4 as i32) {
+                set_color(bright + (48 as i32), bright + (40 as i32), 255 as i32)
             } else {
-                set_color(bright, bright, 220 + bright / 6)
+                set_color(bright, bright, (220 as i32) + bright / (6 as i32))
             }
 
             SDL_RenderDrawPoint(g_renderer, px0, base_y)
-            if i % 6 == 0 {
-                SDL_RenderDrawPoint(g_renderer, px0 + 1, base_y)
+            if i % (6 as i32) == (0 as i32) {
+                SDL_RenderDrawPoint(g_renderer, px0 + (1 as i32), base_y)
             }
-            if i % 11 == 0 {
-                SDL_RenderDrawPoint(g_renderer, px0, base_y + 1)
+            if i % (11 as i32) == (0 as i32) {
+                SDL_RenderDrawPoint(g_renderer, px0, base_y + (1 as i32))
             }
         }
         i++
     }
 }
 
-fn render_ground(horizon: i32, cam_x: f32, cam_z: f32, cam_alt: f32, heading: f32, pitch: f32) void = trust {
-    val forward_x: f32 = cosf(heading)
-    val forward_z: f32 = sinf(heading)
-    val right_x: f32 = -forward_z
-    val right_z: f32 = forward_x
+fn render_ground(horizon: i32, cam_x: f64, cam_z: f64, cam_alt: f64, heading: f64, pitch: f64) void = trust {
+    val forward_x: f64 = math.cos(heading)
+    val forward_z: f64 = math.sin(heading)
+    val right_x: f64 = 0.0 - forward_z
+    val right_z: f64 = forward_x
 
-    val start_y: mut i32 = clampi(horizon, 0, SCREEN_HEIGHT - 1)
+    val start_y: i32 = math.clamp(horizon as i64, 0, (SCREEN_HEIGHT - (1 as i32)) as i64) as i32
     val y: mut i32 = start_y
     for y < SCREEN_HEIGHT {
-        val dy: f32 = (y - horizon) as f32
-        val depth_base: mut f32 = (cam_alt * 18.0 + 300.0) / (dy * 0.12 + 1.0)
+        val dy: f64 = (y - horizon) as f64
+        val depth_base: mut f64 = (cam_alt * 18.0 + 300.0) / (dy * 0.12 + 1.0)
         depth_base += pitch * 240.0
-        if depth_base < 8.0 {
-            depth_base = 8.0
-        }
+        depth_base = math.fclamp(depth_base, 8.0, 2400.0)
 
-        val center_x: f32 = cam_x + forward_x * depth_base
-        val center_z: f32 = cam_z + forward_z * depth_base
-        val half_width: f32 = depth_base * 1.34 + 24.0
+        val center_x: f64 = cam_x + forward_x * depth_base
+        val center_z: f64 = cam_z + forward_z * depth_base
+        val half_width: f64 = depth_base * 1.34 + 24.0
 
-        val x: mut i32 = 0
+        val x: mut i32 = 0 as i32
         for x < SCREEN_WIDTH {
-            val t: f32 = (((x + GROUND_SEGMENT / 2) as f32) / (SCREEN_WIDTH as f32)) * 2.0 - 1.0
-            val wx: f32 = center_x + right_x * half_width * t
-            val wz: f32 = center_z + right_z * half_width * t
+            val t: f64 = (((x + GROUND_SEGMENT / (2 as i32)) as f64) / (SCREEN_WIDTH as f64)) * 2.0 - 1.0
+            val wx: f64 = center_x + right_x * half_width * t
+            val wz: f64 = center_z + right_z * half_width * t
 
-            val noise_a: f32 = 0.5 + 0.5 * sinf(wx * 0.015 + wz * 0.010)
-            val noise_b: f32 = 0.5 + 0.5 * cosf(wz * 0.019 - wx * 0.006)
-            val mix: f32 = noise_a * 0.58 + noise_b * 0.42
+            val noise_a: f64 = 0.5 + 0.5 * math.sin(wx * 0.015 + wz * 0.010)
+            val noise_b: f64 = 0.5 + 0.5 * math.cos(wz * 0.019 - wx * 0.006)
+            val mix: f64 = noise_a * 0.58 + noise_b * 0.42
+            val abs_runway_z: f64 = math.fabs(wz)
 
-            val abs_runway_z: f32 = fabsf(wz)
             val r: mut i32 = (10.0 + mix * 14.0) as i32
             val g: mut i32 = (20.0 + mix * 34.0) as i32
             val b: mut i32 = (9.0 + noise_b * 11.0) as i32
 
             if wx > -1200.0 && wx < 5200.0 && abs_runway_z < 68.0 {
-                val lane_shade: f32 = 0.45 + 0.55 * (1.0 - abs_runway_z / 68.0)
+                val lane_shade: f64 = 0.45 + 0.55 * (1.0 - abs_runway_z / 68.0)
                 r = (20.0 + lane_shade * 11.0) as i32
                 g = (21.0 + lane_shade * 11.0) as i32
                 b = (24.0 + lane_shade * 13.0) as i32
 
-                val dash_phase: i32 = ((((wx as i32) + 200000) / 140) % 2)
-                if abs_runway_z < 4.0 && dash_phase == 0 {
-                    r = 212
-                    g = 212
-                    b = 192
+                val dash_phase: i32 = (((wx as i32) + (200000 as i32)) / (140 as i32)) % (2 as i32)
+                if abs_runway_z < 4.0 && dash_phase == (0 as i32) {
+                    r = 212 as i32
+                    g = 212 as i32
+                    b = 192 as i32
                 }
 
-                val edge_phase: i32 = ((((wx as i32) + 200000) / 90) % 2)
-                if abs_runway_z > 59.0 && abs_runway_z < 63.0 && edge_phase == 0 {
-                    r = 82
-                    g = 110
-                    b = 250
+                val edge_phase: i32 = (((wx as i32) + (200000 as i32)) / (90 as i32)) % (2 as i32)
+                if abs_runway_z > 59.0 && abs_runway_z < 63.0 && edge_phase == (0 as i32) {
+                    r = 82 as i32
+                    g = 110 as i32
+                    b = 250 as i32
                 }
 
                 if wx > -980.0 && wx < -830.0 {
                     if abs_runway_z < 3.0 {
-                        r = 140
-                        g = 255
-                        b = 170
+                        r = 140 as i32
+                        g = 255 as i32
+                        b = 170 as i32
                     } elif abs_runway_z > 49.0 && abs_runway_z < 56.0 {
-                        r = 255
-                        g = 80
-                        b = 80
+                        r = 255 as i32
+                        g = 80 as i32
+                        b = 80 as i32
                     }
                 }
             } else {
-                val cell_x: i32 = ((((wx as i32) + 200000) / 90) % 19)
-                val cell_z: i32 = ((((wz as i32) + 200000) / 90) % 23)
-                if depth_base > 260.0 && cell_x == 0 && cell_z == 0 {
-                    r = 210
-                    g = 172
-                    b = 82
+                val cell_x: i32 = (((wx as i32) + (200000 as i32)) / (90 as i32)) % (19 as i32)
+                val cell_z: i32 = (((wz as i32) + (200000 as i32)) / (90 as i32)) % (23 as i32)
+                if depth_base > 260.0 && cell_x == (0 as i32) && cell_z == (0 as i32) {
+                    r = 210 as i32
+                    g = 172 as i32
+                    b = 82 as i32
                 }
             }
 
-            val fog: f32 = clampf(1.08 - depth_base / 1600.0, 0.20, 1.0)
-            r = ((r as f32) * fog) as i32
-            g = ((g as f32) * fog) as i32
-            b = ((b as f32) * fog) as i32
+            val fog: f64 = math.fclamp(1.08 - depth_base / 1600.0, 0.20, 1.0)
+            r = ((r as f64) * fog) as i32
+            g = ((g as f64) * fog) as i32
+            b = ((b as f64) * fog) as i32
 
-            if y < horizon + 18 {
-                r += 5
-                g += 4
-                b += 12
+            if y < horizon + (18 as i32) {
+                r += 5 as i32
+                g += 4 as i32
+                b += 12 as i32
             }
 
             set_color(r, g, b)
-            fill_rect(x, y, GROUND_SEGMENT + 1, GROUND_ROW_STEP + 1)
+            fill_rect(x, y, GROUND_SEGMENT + (1 as i32), GROUND_ROW_STEP + (1 as i32))
             x += GROUND_SEGMENT
         }
 
@@ -353,69 +338,69 @@ fn render_ground(horizon: i32, cam_x: f32, cam_z: f32, cam_alt: f32, heading: f3
 }
 
 fn render_plane_overlay(horizon: i32) void = trust {
-    val cx: i32 = SCREEN_WIDTH / 2 + (g_plane.bank * 34.0) as i32
-    val cy: i32 = horizon + 136 - (g_plane.pitch * 120.0) as i32
+    val cx: i32 = SCREEN_WIDTH / (2 as i32) + (g_plane.bank * 34.0) as i32
+    val cy: i32 = horizon + (136 as i32) - (g_plane.pitch * 120.0) as i32
     val wing_slope: i32 = (g_plane.bank * 40.0) as i32
     val tail_shift: i32 = (g_plane.pitch * 18.0) as i32
 
-    set_color(235, 238, 246)
-    draw_line(cx - 66, cy + wing_slope / 2, cx + 66, cy - wing_slope / 2)
-    draw_line(cx, cy - 34 - tail_shift, cx, cy + 36)
-    draw_line(cx - 24, cy + 22, cx + 24, cy + 22)
-    draw_line(cx - 12, cy - 18, cx + 12, cy - 18)
+    set_color(235 as i32, 238 as i32, 246 as i32)
+    draw_line(cx - (66 as i32), cy + wing_slope / (2 as i32), cx + (66 as i32), cy - wing_slope / (2 as i32))
+    draw_line(cx, cy - (34 as i32) - tail_shift, cx, cy + (36 as i32))
+    draw_line(cx - (24 as i32), cy + (22 as i32), cx + (24 as i32), cy + (22 as i32))
+    draw_line(cx - (12 as i32), cy - (18 as i32), cx + (12 as i32), cy - (18 as i32))
 
-    set_color(110, 170, 255)
-    fill_rect(cx - 3, cy - 40 - tail_shift, 6, 6)
+    set_color(110 as i32, 170 as i32, 255 as i32)
+    fill_rect(cx - (3 as i32), cy - (40 as i32) - tail_shift, 6 as i32, 6 as i32)
 
-    set_color(255, 166, 76)
-    fill_rect(cx - 4, cy + 36, 8, 10)
+    set_color(255 as i32, 166 as i32, 76 as i32)
+    fill_rect(cx - (4 as i32), cy + (36 as i32), 8 as i32, 10 as i32)
 }
 
 fn render_cockpit() void = trust {
-    set_color(7, 8, 14)
-    fill_rect(0, SCREEN_HEIGHT - 120, SCREEN_WIDTH, 120)
+    set_color(7 as i32, 8 as i32, 14 as i32)
+    fill_rect(0 as i32, SCREEN_HEIGHT - (120 as i32), SCREEN_WIDTH, 120 as i32)
 
-    set_color(12, 16, 28)
-    fill_rect(0, SCREEN_HEIGHT - 132, SCREEN_WIDTH, 18)
+    set_color(12 as i32, 16 as i32, 28 as i32)
+    fill_rect(0 as i32, SCREEN_HEIGHT - (132 as i32), SCREEN_WIDTH, 18 as i32)
 
-    set_color(48, 215, 214)
-    draw_line(SCREEN_WIDTH / 2 - 18, SCREEN_HEIGHT / 2, SCREEN_WIDTH / 2 + 18, SCREEN_HEIGHT / 2)
-    draw_line(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 18, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 18)
-    draw_line(SCREEN_WIDTH / 2 - 70, SCREEN_HEIGHT / 2 + 40, SCREEN_WIDTH / 2 - 25, SCREEN_HEIGHT / 2 + 40)
-    draw_line(SCREEN_WIDTH / 2 + 25, SCREEN_HEIGHT / 2 + 40, SCREEN_WIDTH / 2 + 70, SCREEN_HEIGHT / 2 + 40)
+    set_color(48 as i32, 215 as i32, 214 as i32)
+    draw_line(SCREEN_WIDTH / (2 as i32) - (18 as i32), SCREEN_HEIGHT / (2 as i32), SCREEN_WIDTH / (2 as i32) + (18 as i32), SCREEN_HEIGHT / (2 as i32))
+    draw_line(SCREEN_WIDTH / (2 as i32), SCREEN_HEIGHT / (2 as i32) - (18 as i32), SCREEN_WIDTH / (2 as i32), SCREEN_HEIGHT / (2 as i32) + (18 as i32))
+    draw_line(SCREEN_WIDTH / (2 as i32) - (70 as i32), SCREEN_HEIGHT / (2 as i32) + (40 as i32), SCREEN_WIDTH / (2 as i32) - (25 as i32), SCREEN_HEIGHT / (2 as i32) + (40 as i32))
+    draw_line(SCREEN_WIDTH / (2 as i32) + (25 as i32), SCREEN_HEIGHT / (2 as i32) + (40 as i32), SCREEN_WIDTH / (2 as i32) + (70 as i32), SCREEN_HEIGHT / (2 as i32) + (40 as i32))
 }
 
 fn render_hud() void = trust {
-    val speed_ratio: f32 = clampf((g_plane.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED), 0.0, 1.0)
-    val altitude_ratio: f32 = clampf((g_plane.altitude - 12.0) / 320.0, 0.0, 1.0)
+    val speed_ratio: f64 = math.clamp01((g_plane.speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED))
+    val altitude_ratio: f64 = math.clamp01((g_plane.altitude - 12.0) / 320.0)
 
-    set_color(10, 14, 20)
-    fill_rect(24, SCREEN_HEIGHT - 70, 226, 26)
-    fill_rect(SCREEN_WIDTH - 250, SCREEN_HEIGHT - 70, 226, 26)
+    set_color(10 as i32, 14 as i32, 20 as i32)
+    fill_rect(24 as i32, SCREEN_HEIGHT - (70 as i32), 226 as i32, 26 as i32)
+    fill_rect(SCREEN_WIDTH - (250 as i32), SCREEN_HEIGHT - (70 as i32), 226 as i32, 26 as i32)
 
-    set_color(42, 190, 255)
-    fill_rect(27, SCREEN_HEIGHT - 67, (speed_ratio * 220.0) as i32, 20)
+    set_color(42 as i32, 190 as i32, 255 as i32)
+    fill_rect(27 as i32, SCREEN_HEIGHT - (67 as i32), (speed_ratio * 220.0) as i32, 20 as i32)
 
-    set_color(126, 224, 150)
-    fill_rect(SCREEN_WIDTH - 247, SCREEN_HEIGHT - 67, (altitude_ratio * 220.0) as i32, 20)
+    set_color(126 as i32, 224 as i32, 150 as i32)
+    fill_rect(SCREEN_WIDTH - (247 as i32), SCREEN_HEIGHT - (67 as i32), (altitude_ratio * 220.0) as i32, 20 as i32)
 
-    set_color(60, 70, 92)
-    fill_rect(24, 24, 46, 46)
+    set_color(60 as i32, 70 as i32, 92 as i32)
+    fill_rect(24 as i32, 24 as i32, 46 as i32, 46 as i32)
 
     if g_view_third_person {
-        set_color(235, 238, 246)
-        draw_line(33, 48, 61, 48)
-        draw_line(47, 33, 47, 61)
-        draw_line(39, 56, 55, 56)
+        set_color(235 as i32, 238 as i32, 246 as i32)
+        draw_line(33 as i32, 48 as i32, 61 as i32, 48 as i32)
+        draw_line(47 as i32, 33 as i32, 47 as i32, 61 as i32)
+        draw_line(39 as i32, 56 as i32, 55 as i32, 56 as i32)
     } else {
-        set_color(48, 215, 214)
-        draw_line(33, 47, 61, 47)
-        draw_line(47, 33, 47, 61)
-        draw_line(40, 40, 54, 54)
+        set_color(48 as i32, 215 as i32, 214 as i32)
+        draw_line(33 as i32, 47 as i32, 61 as i32, 47 as i32)
+        draw_line(47 as i32, 33 as i32, 47 as i32, 61 as i32)
+        draw_line(40 as i32, 40 as i32, 54 as i32, 54 as i32)
     }
 }
 
-fn update_plane(dt: f32, keys: ref u8) void = trust {
+fn update_plane(dt: f64, keys: ref u8) void = trust {
     val key_a: u8 = @load(@ptradd(keys, (C.SDL_SCANCODE_A) * @sizeof(u8)))
     val key_d: u8 = @load(@ptradd(keys, (C.SDL_SCANCODE_D) * @sizeof(u8)))
     val key_w: u8 = @load(@ptradd(keys, (C.SDL_SCANCODE_W) * @sizeof(u8)))
@@ -425,58 +410,64 @@ fn update_plane(dt: f32, keys: ref u8) void = trust {
     val key_v: u8 = @load(@ptradd(keys, (C.SDL_SCANCODE_V) * @sizeof(u8)))
     val key_c: u8 = @load(@ptradd(keys, (C.SDL_SCANCODE_C) * @sizeof(u8)))
 
-    val yaw_input: mut f32 = 0.0
-    if key_a != 0 { yaw_input -= 1.0 }
-    if key_d != 0 { yaw_input += 1.0 }
+    val yaw_input: mut f64 = 0.0
+    if key_a != 0 {
+        yaw_input -= 1.0
+    }
+    if key_d != 0 {
+        yaw_input += 1.0
+    }
 
-    val pitch_input: mut f32 = 0.0
-    if key_up != 0 { pitch_input += 1.0 }
-    if key_down != 0 { pitch_input -= 1.0 }
+    val pitch_input: mut f64 = 0.0
+    if key_up != 0 {
+        pitch_input += 1.0
+    }
+    if key_down != 0 {
+        pitch_input -= 1.0
+    }
 
-    val throttle_input: mut f32 = 0.0
-    if key_w != 0 { throttle_input += 1.0 }
-    if key_s != 0 { throttle_input -= 1.0 }
+    val throttle_input: mut f64 = 0.0
+    if key_w != 0 {
+        throttle_input += 1.0
+    }
+    if key_s != 0 {
+        throttle_input -= 1.0
+    }
 
     if key_v != 0 || key_c != 0 {
         if !g_toggle_latch {
-            if g_view_third_person {
-                g_view_third_person = false
-            } else {
-                g_view_third_person = true
-            }
+            g_view_third_person = !g_view_third_person
             g_toggle_latch = true
         }
     } else {
         g_toggle_latch = false
     }
 
-    g_plane.speed += throttle_input * 68.0 * dt
-    g_plane.speed = clampf(g_plane.speed, MIN_SPEED, MAX_SPEED)
-
+    g_plane.speed = math.fclamp(g_plane.speed + throttle_input * 68.0 * dt, MIN_SPEED, MAX_SPEED)
     g_plane.pitch += pitch_input * 0.72 * dt
     g_plane.pitch -= g_plane.pitch * 0.18 * dt
-    g_plane.pitch = clampf(g_plane.pitch, -0.42, 0.44)
+    g_plane.pitch = math.fclamp(g_plane.pitch, -0.42, 0.44)
 
-    val target_bank: f32 = yaw_input * 0.72
+    val target_bank: f64 = yaw_input * 0.72
     g_plane.bank += (target_bank - g_plane.bank) * 2.8 * dt
-    g_plane.bank = clampf(g_plane.bank, -0.85, 0.85)
+    g_plane.bank = math.fclamp(g_plane.bank, -0.85, 0.85)
 
     g_plane.heading += yaw_input * (0.52 + g_plane.speed / 500.0) * dt
     wrap_heading()
 
-    val forward_x: f32 = cosf(g_plane.heading)
-    val forward_z: f32 = sinf(g_plane.heading)
-
+    val forward_x: f64 = math.cos(g_plane.heading)
+    val forward_z: f64 = math.sin(g_plane.heading)
     g_plane.x += forward_x * g_plane.speed * dt
     g_plane.z += forward_z * g_plane.speed * dt
 
-    val lift: f32 = (g_plane.speed - 165.0) * 0.13
-    val climb_rate: f32 = sinf(g_plane.pitch) * g_plane.speed * 0.56 + lift - 19.0
+    val lift: f64 = (g_plane.speed - 165.0) * 0.13
+    val climb_rate: f64 = math.sin(g_plane.pitch) * g_plane.speed * 0.56 + lift - 19.0
     g_plane.altitude += climb_rate * dt
+
     if g_plane.altitude < 12.0 {
         g_plane.altitude = 12.0
         if g_plane.pitch < 0.0 {
-            g_plane.pitch = g_plan.pitch * 0.4
+            g_plane.pitch = g_plane.pitch * 0.4
         }
     }
     if g_plane.altitude > 360.0 {
@@ -486,11 +477,11 @@ fn update_plane(dt: f32, keys: ref u8) void = trust {
 
 pub fn main() i32 = trust {
     if SDL_Init(C.SDL_INIT_VIDEO) != 0 {
-        return 1
+        return 1 as i32
     }
 
     val window: ref void = SDL_CreateWindow(
-        "flightsim",
+        "spectre flightsim",
         C.SDL_WINDOWPOS_CENTERED,
         C.SDL_WINDOWPOS_CENTERED,
         SCREEN_WIDTH,
@@ -499,18 +490,18 @@ pub fn main() i32 = trust {
     )
     if window == none {
         SDL_Quit()
-        return 1
+        return 1 as i32
     }
 
     val renderer: ref void = SDL_CreateRenderer(
         window,
-        -1,
+        -1 as i32,
         C.SDL_RENDERER_ACCELERATED | C.SDL_RENDERER_PRESENTVSYNC
     )
     if renderer == none {
         SDL_DestroyWindow(window)
         SDL_Quit()
-        return 1
+        return 1 as i32
     }
 
     g_renderer = renderer
@@ -542,8 +533,8 @@ pub fn main() i32 = trust {
         }
 
         val ticks: u32 = SDL_GetTicks()
-        val dt_raw: f32 = ((ticks - last_ticks) as f32) / 1000.0
-        val dt: f32 = clampf(dt_raw, 0.0, 0.05)
+        val dt_raw: f64 = ((ticks - last_ticks) as f64) / 1000.0
+        val dt: f64 = math.fclamp(dt_raw, 0.0, 0.05)
         last_ticks = ticks
         g_world_time += dt
 
@@ -552,9 +543,9 @@ pub fn main() i32 = trust {
         SDL_SetRenderDrawColor(renderer, 0 as u8, 0 as u8, 0 as u8, 255 as u8)
         SDL_RenderClear(renderer)
 
-        val cam_pitch: f32 = get_camera_pitch()
-        val horizon: mut i32 = SCREEN_HEIGHT / 2 + 34 - (cam_pitch * 230.0) as i32
-        horizon = clampi(horizon, 150, SCREEN_HEIGHT - 140)
+        val cam_pitch: f64 = get_camera_pitch()
+        val horizon0: i32 = SCREEN_HEIGHT / (2 as i32) + (34 as i32) - (cam_pitch * 230.0) as i32
+        val horizon: i32 = math.clamp(horizon0 as i64, 150, (SCREEN_HEIGHT - (140 as i32)) as i64) as i32
 
         draw_sky_gradient()
         draw_stars_and_moon(horizon, get_camera_heading())
@@ -583,5 +574,5 @@ pub fn main() i32 = trust {
     SDL_DestroyRenderer(renderer)
     SDL_DestroyWindow(window)
     SDL_Quit()
-    return 0
+    return 0 as i32
 }
