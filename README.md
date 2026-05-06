@@ -8,3 +8,4 @@ spectre build dev
 
 Requires SDL2 to be installed, only tested on Linux/MacOS.
 
+<img src="screens/screen.png">
