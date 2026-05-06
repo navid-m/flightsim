@@ -1,0 +1,10 @@
+pub type Plane = {
+    x: mut f64
+    z: mut f64
+    altitude: mut f64
+    heading: mut f64
+    pitch: mut f64
+    bank: mut f64
+    speed: mut f64
+}
+
