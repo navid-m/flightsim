@@ -124,16 +124,50 @@ fn release_plane_sprite() void = {
     }
 }
 
-fn draw_sky_gradient() void = trust {
+fn draw_sky_gradient(horizon: i32, heading: f64) void = trust {
     val y: mut i32 = 0 as i32
     for y < consts.SCREEN_HEIGHT {
         val t: f64 = (y as f64) / (consts.SCREEN_HEIGHT as f64)
-        val r: i32 = (6.0 + t * 18.0) as i32
-        val g: i32 = (10.0 + t * 16.0) as i32
-        val b: i32 = (22.0 + t * 42.0) as i32
+        val upper_glow: f64 = 0.5 + 0.5 * math.cos(t * math_static.PI)
+        val r: i32 = (4.0 + upper_glow * 7.0 + t * 20.0) as i32
+        val g: i32 = (8.0 + upper_glow * 10.0 + t * 18.0) as i32
+        val b: i32 = (18.0 + upper_glow * 22.0 + t * 56.0) as i32
         set_color(r, g, b)
         fill_rect(0 as i32, y, consts.SCREEN_WIDTH, 4 as i32)
         y += 4 as i32
+    }
+
+    val band_y: mut i32 = 0 as i32
+    for band_y < horizon {
+        val yf: f64 = band_y as f64
+        val drift: f64 = heading * 0.16
+        val band_a: f64 = 0.5 + 0.5 * math.sin(yf * 0.018 + drift)
+        val band_b: f64 = 0.5 + 0.5 * math.cos(yf * 0.034 - drift * 1.7)
+        val band_mix: f64 = band_a * 0.6 + band_b * 0.4
+        val glow: f64 = math.fclamp(1.0 - ((horizon - band_y) as f64) / 180.0, 0.0, 1.0)
+
+        set_color(
+            (8.0 + band_mix * 10.0 + glow * 12.0) as i32,
+            (10.0 + band_mix * 12.0 + glow * 10.0) as i32,
+            (24.0 + band_mix * 28.0 + glow * 18.0) as i32
+        )
+        fill_rect(0 as i32, band_y, consts.SCREEN_WIDTH, 2 as i32)
+        band_y += 2 as i32
+    }
+
+    val haze_y: mut i32 = horizon - (54 as i32)
+    for haze_y < horizon + (14 as i32) {
+        val dist: i32 = haze_y - horizon
+        val strength: i32 = (46 as i32) - dist * dist / (22 as i32)
+        if strength > (0 as i32) {
+            set_color(
+                (18 as i32) + strength / (4 as i32),
+                (18 as i32) + strength / (3 as i32),
+                (40 as i32) + strength / (2 as i32)
+            )
+            fill_rect(0 as i32, haze_y, consts.SCREEN_WIDTH, 2 as i32)
+        }
+        haze_y += 2 as i32
     }
 }
 
@@ -165,37 +199,15 @@ fn draw_mountains(horizon: i32, heading: f64) void = trust {
     }
 }
 
-fn draw_stars_and_moon(horizon: i32, heading: f64) void = trust {
-    val moon_shift: i32 = (heading * 40.0) as i32
-    val moon_x: i32 = consts.SCREEN_WIDTH - (220 as i32) - moon_shift / (3 as i32)
-    val moon_y: i32 = 112 as i32
-
-    draw_circle(moon_x, moon_y, 38 as i32, 160 as i32, 170 as i32, 215 as i32)
-    draw_circle(moon_x, moon_y, 30 as i32, 205 as i32, 212 as i32, 238 as i32)
-    draw_circle(moon_x + (11 as i32), moon_y - (8 as i32), 8 as i32, 180 as i32, 188 as i32, 212 as i32)
-
-    val glow_y: mut i32 = horizon - (32 as i32)
-    for glow_y < horizon + (10 as i32) {
-        val dist: i32 = glow_y - horizon
-        val strength: i32 = (36 as i32) - dist * dist / (18 as i32)
-        if strength > (0 as i32) {
-            set_color(
-                (22 as i32) + strength / (4 as i32),
-                (18 as i32) + strength / (3 as i32),
-                (38 as i32) + strength / (2 as i32)
-            )
-            fill_rect(0 as i32, glow_y, consts.SCREEN_WIDTH, 2 as i32)
-        }
-        glow_y += 2 as i32
-    }
-
+fn draw_stars(horizon: i32, heading: f64) void = trust {
+    val star_shift: i32 = (heading * 40.0) as i32
     val i: mut i32 = 0 as i32
     for i < consts.STAR_COUNT {
         val base_x: i32 = ((i * (197 as i32)) + ((i * i) / (7 as i32)) + (73 as i32)) % consts.SCREEN_WIDTH
         val base_y: i32 = (24 as i32) + (((i * (151 as i32)) + ((i * (19 as i32)) % (173 as i32))) % (consts.SCREEN_HEIGHT / (2 as i32) - (72 as i32)))
         val twinkle: i32 = (((g_world_time * 18.0) as i32) + i * (13 as i32)) % (29 as i32)
 
-        val px0: mut i32 = base_x - moon_shift
+        val px0: mut i32 = base_x - star_shift
         for px0 < (0 - (4 as i32)) {
             px0 += consts.SCREEN_WIDTH + (8 as i32)
         }
@@ -212,11 +224,15 @@ fn draw_stars_and_moon(horizon: i32, heading: f64) void = trust {
             }
 
             sdl.SDL_RenderDrawPoint(g_renderer, px0, base_y)
-            if i % (6 as i32) == (0 as i32) {
+            if i % (5 as i32) == (0 as i32) {
                 sdl.SDL_RenderDrawPoint(g_renderer, px0 + (1 as i32), base_y)
             }
-            if i % (11 as i32) == (0 as i32) {
+            if i % (7 as i32) == (0 as i32) {
                 sdl.SDL_RenderDrawPoint(g_renderer, px0, base_y + (1 as i32))
+            }
+            if i % (13 as i32) == (0 as i32) {
+                sdl.SDL_RenderDrawPoint(g_renderer, px0 - (1 as i32), base_y)
+                sdl.SDL_RenderDrawPoint(g_renderer, px0, base_y - (1 as i32))
             }
         }
         i++
@@ -557,8 +573,8 @@ pub fn main() i32 = trust {
                 val horizon0: i32 = consts.SCREEN_HEIGHT / (2 as i32) + (34 as i32) - (cam_pitch * 230.0) as i32
                 val horizon: i32 = math.clamp(horizon0 as i64, 150, (consts.SCREEN_HEIGHT - (140 as i32)) as i64) as i32
 
-                draw_sky_gradient()
-                draw_stars_and_moon(horizon, get_camera_heading())
+                draw_sky_gradient(horizon, get_camera_heading())
+                draw_stars(horizon, get_camera_heading())
                 draw_mountains(horizon, get_camera_heading())
                 render_ground(
                     horizon,
