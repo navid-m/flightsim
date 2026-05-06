@@ -4,6 +4,7 @@ val math_static = use("std/math/static")
 val types       = use("types.sx")
 val consts      = use("consts.sx")
 val sdl         = use("sdl.sx")
+val mem         = use("mem.sx")
 
 val g_renderer: mut ref void = none
 val g_rect: mut ref sdl.SDL_Rect = none
@@ -20,43 +21,6 @@ val g_plane: mut types.Plane = {
 val g_world_time: mut f64 = 0.0
 val g_view_third_person: mut bool = true
 val g_toggle_latch: mut bool = false
-
-type ScratchBuffers = {
-    arena: allocators.Arena
-    rect: ref sdl.SDL_Rect
-    evt: ref sdl.SDL_Event
-}
-
-fn create_scratch_buffers() option[ScratchBuffers] = trust {
-    match allocators.Arena.new((@sizeof(sdl.SDL_Rect) + @sizeof(sdl.SDL_Event) + 16) as usize) {
-        err _ => {
-            return none
-        }
-        ok arena => {
-            match allocators.Arena.alloc(arena, @sizeof(sdl.SDL_Rect) as usize) {
-                none => {
-                    allocators.Arena.free(arena)
-                    return none
-                }
-                some rect_mem => {
-                    match allocators.Arena.alloc(arena, @sizeof(sdl.SDL_Event) as usize) {
-                        none => {
-                            allocators.Arena.free(arena)
-                            return none
-                        }
-                        some evt_mem => {
-                            return some {
-                                arena: arena,
-                                rect: rect_mem as ref sdl.SDL_Rect,
-                                evt: evt_mem as ref sdl.SDL_Event
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 fn set_color(r: i32, g: i32, b: i32) void = {
     val rr: u8 = (math.clamp(r as i64, 0, 255) as i32) as u8
@@ -496,7 +460,7 @@ pub fn main() i32 = trust {
         return 1 as i32
     }
 
-    match create_scratch_buffers() {
+    match mem.create_scratch_buffers() {
         none => {
             sdl.SDL_DestroyRenderer(renderer)
             sdl.SDL_DestroyWindow(window)

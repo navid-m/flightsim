@@ -1,0 +1,39 @@
+val sdl        = use("sdl.sx")
+val allocators = use("std/allocators")
+
+type ScratchBuffers = {
+    arena: allocators.Arena
+    rect: ref sdl.SDL_Rect
+    evt: ref sdl.SDL_Event
+}
+
+pub fn create_scratch_buffers() option[ScratchBuffers] = trust {
+    match allocators.Arena.new((@sizeof(sdl.SDL_Rect) + @sizeof(sdl.SDL_Event) + 16) as usize) {
+        err _ => {
+            return none
+        }
+        ok arena => {
+            match allocators.Arena.alloc(arena, @sizeof(sdl.SDL_Rect) as usize) {
+                none => {
+                    allocators.Arena.free(arena)
+                    return none
+                }
+                some rect_mem => {
+                    match allocators.Arena.alloc(arena, @sizeof(sdl.SDL_Event) as usize) {
+                        none => {
+                            allocators.Arena.free(arena)
+                            return none
+                        }
+                        some evt_mem => {
+                            return some {
+                                arena: arena,
+                                rect: rect_mem as ref sdl.SDL_Rect,
+                                evt: evt_mem as ref sdl.SDL_Event
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
