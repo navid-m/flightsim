@@ -481,7 +481,7 @@ pub fn main() i32 = trust {
     }
 
     val window: ref void = SDL_CreateWindow(
-        "spectre flightsim",
+        "flightsim",
         C.SDL_WINDOWPOS_CENTERED,
         C.SDL_WINDOWPOS_CENTERED,
         SCREEN_WIDTH,
