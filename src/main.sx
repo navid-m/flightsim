@@ -51,6 +51,43 @@ val g_world_time: mut f64 = 0.0
 val g_view_third_person: mut bool = true
 val g_toggle_latch: mut bool = false
 
+type ScratchBuffers = {
+    arena: allocators.Arena
+    rect: ref SDL_Rect
+    evt: ref SDL_Event
+}
+
+fn create_scratch_buffers() option[ScratchBuffers] = trust {
+    match allocators.Arena.new((@sizeof(SDL_Rect) + @sizeof(SDL_Event) + 16) as usize) {
+        err _ => {
+            return none
+        }
+        ok arena => {
+            match allocators.Arena.alloc(arena, @sizeof(SDL_Rect) as usize) {
+                none => {
+                    allocators.Arena.free(arena)
+                    return none
+                }
+                some rect_mem => {
+                    match allocators.Arena.alloc(arena, @sizeof(SDL_Event) as usize) {
+                        none => {
+                            allocators.Arena.free(arena)
+                            return none
+                        }
+                        some evt_mem => {
+                            return some {
+                                arena: arena,
+                                rect: rect_mem as ref SDL_Rect,
+                                evt: evt_mem as ref SDL_Event
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn set_color(r: i32, g: i32, b: i32) void = {
     val rr: u8 = (math.clamp(r as i64, 0, 255) as i32) as u8
     val gg: u8 = (math.clamp(g as i64, 0, 255) as i32) as u8
@@ -489,107 +526,85 @@ pub fn main() i32 = trust {
         return 1 as i32
     }
 
-    match allocators.Arena.new((@sizeof(SDL_Rect) + @sizeof(SDL_Event) + 16) as usize) {
-        err _ => {
+    match create_scratch_buffers() {
+        none => {
             SDL_DestroyRenderer(renderer)
             SDL_DestroyWindow(window)
             SDL_Quit()
             return 1 as i32
         }
-        ok scratch => {
-            match allocators.Arena.alloc(scratch, @sizeof(SDL_Rect) as usize) {
-                none => {
-                    allocators.Arena.free(scratch)
-                    SDL_DestroyRenderer(renderer)
-                    SDL_DestroyWindow(window)
-                    SDL_Quit()
-                    return 1 as i32
+        some scratch => {
+            g_renderer = renderer
+            g_rect = scratch.rect
+            val evt: ref SDL_Event = scratch.evt
+
+            val quit: mut bool = false
+            val last_ticks: mut u32 = SDL_GetTicks()
+
+            for {
+                if quit {
+                    break
                 }
-                some rect_mem => {
-                    match allocators.Arena.alloc(scratch, @sizeof(SDL_Event) as usize) {
-                        none => {
-                            allocators.Arena.free(scratch)
-                            SDL_DestroyRenderer(renderer)
-                            SDL_DestroyWindow(window)
-                            SDL_Quit()
-                            return 1 as i32
+
+                for {
+                    if SDL_PollEvent(evt) != 0 {
+                        if evt.type_value == C.SDL_QUIT {
+                            quit = true
                         }
-                        some evt_mem => {
-                            g_renderer = renderer
-                            g_rect = rect_mem as ref SDL_Rect
-                            val evt: ref SDL_Event = evt_mem as ref SDL_Event
-
-                            val quit: mut bool = false
-                            val last_ticks: mut u32 = SDL_GetTicks()
-
-                            for {
-                                if quit {
-                                    break
-                                }
-
-                                for {
-                                    if SDL_PollEvent(evt) != 0 {
-                                        if evt.type_value == C.SDL_QUIT {
-                                            quit = true
-                                        }
-                                    } else {
-                                        break
-                                    }
-                                }
-
-                                val keys: ref u8 = SDL_GetKeyboardState(none as ref i32)
-                                val key_escape: u8 = @load(@ptradd(keys, (C.SDL_SCANCODE_ESCAPE) * @sizeof(u8)))
-                                if key_escape != 0 {
-                                    quit = true
-                                }
-
-                                val ticks: u32 = SDL_GetTicks()
-                                val dt_raw: f64 = ((ticks - last_ticks) as f64) / 1000.0
-                                val dt: f64 = math.fclamp(dt_raw, 0.0, 0.05)
-                                last_ticks = ticks
-                                g_world_time += dt
-
-                                update_plane(dt, keys)
-
-                                SDL_SetRenderDrawColor(renderer, 0 as u8, 0 as u8, 0 as u8, 255 as u8)
-                                SDL_RenderClear(renderer)
-
-                                val cam_pitch: f64 = get_camera_pitch()
-                                val horizon0: i32 = consts.SCREEN_HEIGHT / (2 as i32) + (34 as i32) - (cam_pitch * 230.0) as i32
-                                val horizon: i32 = math.clamp(horizon0 as i64, 150, (consts.SCREEN_HEIGHT - (140 as i32)) as i64) as i32
-
-                                draw_sky_gradient()
-                                draw_stars_and_moon(horizon, get_camera_heading())
-                                draw_mountains(horizon, get_camera_heading())
-                                render_ground(
-                                    horizon,
-                                    get_camera_x(),
-                                    get_camera_z(),
-                                    get_camera_altitude(),
-                                    get_camera_heading(),
-                                    cam_pitch
-                                )
-
-                                if g_view_third_person {
-                                    render_plane_overlay(horizon)
-                                } else {
-                                    render_cockpit()
-                                }
-
-                                render_hud()
-                                SDL_RenderPresent(renderer)
-                            }
-
-                            g_rect = none
-                            allocators.Arena.free(scratch)
-                            SDL_DestroyRenderer(renderer)
-                            SDL_DestroyWindow(window)
-                            SDL_Quit()
-                            return 0 as i32
-                        }
+                    } else {
+                        break
                     }
                 }
+
+                val keys: ref u8 = SDL_GetKeyboardState(none as ref i32)
+                val key_escape: u8 = @load(@ptradd(keys, (C.SDL_SCANCODE_ESCAPE) * @sizeof(u8)))
+                if key_escape != 0 {
+                    quit = true
+                }
+
+                val ticks: u32 = SDL_GetTicks()
+                val dt_raw: f64 = ((ticks - last_ticks) as f64) / 1000.0
+                val dt: f64 = math.fclamp(dt_raw, 0.0, 0.05)
+                last_ticks = ticks
+                g_world_time += dt
+
+                update_plane(dt, keys)
+
+                SDL_SetRenderDrawColor(renderer, 0 as u8, 0 as u8, 0 as u8, 255 as u8)
+                SDL_RenderClear(renderer)
+
+                val cam_pitch: f64 = get_camera_pitch()
+                val horizon0: i32 = consts.SCREEN_HEIGHT / (2 as i32) + (34 as i32) - (cam_pitch * 230.0) as i32
+                val horizon: i32 = math.clamp(horizon0 as i64, 150, (consts.SCREEN_HEIGHT - (140 as i32)) as i64) as i32
+
+                draw_sky_gradient()
+                draw_stars_and_moon(horizon, get_camera_heading())
+                draw_mountains(horizon, get_camera_heading())
+                render_ground(
+                    horizon,
+                    get_camera_x(),
+                    get_camera_z(),
+                    get_camera_altitude(),
+                    get_camera_heading(),
+                    cam_pitch
+                )
+
+                if g_view_third_person {
+                    render_plane_overlay(horizon)
+                } else {
+                    render_cockpit()
+                }
+
+                render_hud()
+                SDL_RenderPresent(renderer)
             }
+
+            g_rect = none
+            allocators.Arena.free(scratch.arena)
+            SDL_DestroyRenderer(renderer)
+            SDL_DestroyWindow(window)
+            SDL_Quit()
+            return 0 as i32
         }
     }
 }
