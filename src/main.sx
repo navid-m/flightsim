@@ -315,15 +315,34 @@ fn render_plane_overlay(horizon: i32) void = trust {
 fn render_cockpit() void = trust {
     set_color(7 as i32, 8 as i32, 14 as i32)
     fill_rect(0 as i32, consts.SCREEN_HEIGHT - (120 as i32), consts.SCREEN_WIDTH, 120 as i32)
-
     set_color(12 as i32, 16 as i32, 28 as i32)
     fill_rect(0 as i32, consts.SCREEN_HEIGHT - (132 as i32), consts.SCREEN_WIDTH, 18 as i32)
-
     set_color(48 as i32, 215 as i32, 214 as i32)
-    draw_line(consts.SCREEN_WIDTH / (2 as i32) - (18 as i32), consts.SCREEN_HEIGHT / (2 as i32), consts.SCREEN_WIDTH / (2 as i32) + (18 as i32), consts.SCREEN_HEIGHT / (2 as i32))
-    draw_line(consts.SCREEN_WIDTH / (2 as i32), consts.SCREEN_HEIGHT / (2 as i32) - (18 as i32), consts.SCREEN_WIDTH / (2 as i32), consts.SCREEN_HEIGHT / (2 as i32) + (18 as i32))
-    draw_line(consts.SCREEN_WIDTH / (2 as i32) - (70 as i32), consts.SCREEN_HEIGHT / (2 as i32) + (40 as i32), consts.SCREEN_WIDTH / (2 as i32) - (25 as i32), consts.SCREEN_HEIGHT / (2 as i32) + (40 as i32))
-    draw_line(consts.SCREEN_WIDTH / (2 as i32) + (25 as i32), consts.SCREEN_HEIGHT / (2 as i32) + (40 as i32), consts.SCREEN_WIDTH / (2 as i32) + (70 as i32), consts.SCREEN_HEIGHT / (2 as i32) + (40 as i32))
+
+    draw_line(
+        consts.SCREEN_WIDTH / (2 as i32) - (18 as i32), 
+        consts.SCREEN_HEIGHT / (2 as i32), 
+        consts.SCREEN_WIDTH / (2 as i32) + (18 as i32),
+        consts.SCREEN_HEIGHT / (2 as i32)
+    )
+    draw_line(
+        consts.SCREEN_WIDTH / (2 as i32), 
+        consts.SCREEN_HEIGHT / (2 as i32) - (18 as i32), 
+        consts.SCREEN_WIDTH / (2 as i32), 
+        consts.SCREEN_HEIGHT / (2 as i32) + (18 as i32)
+    )
+    draw_line(
+        consts.SCREEN_WIDTH / (2 as i32) - (70 as i32), 
+        consts.SCREEN_HEIGHT / (2 as i32) + (40 as i32), 
+        consts.SCREEN_WIDTH / (2 as i32) - (25 as i32), 
+        consts.SCREEN_HEIGHT / (2 as i32) + (40 as i32)
+    )
+    draw_line(
+        consts.SCREEN_WIDTH / (2 as i32) + (25 as i32), 
+        consts.SCREEN_HEIGHT / (2 as i32) + (40 as i32), 
+        consts.SCREEN_WIDTH / (2 as i32) + (70 as i32), 
+        consts.SCREEN_HEIGHT / (2 as i32) + (40 as i32)
+    )
 }
 
 fn render_hud() void = trust {
