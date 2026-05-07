@@ -685,7 +685,7 @@ pub fn main() i32 = trust {
             sdl.SDL_DestroyRenderer(renderer)
             sdl.SDL_DestroyWindow(window)
             sdl.SDL_Quit()
-            return 0 as i32
+            return 0
         }
     }
 }
