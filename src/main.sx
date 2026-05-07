@@ -618,11 +618,7 @@ pub fn main() i32 = trust {
             val quit: mut bool = false
             val last_ticks: mut u32 = sdl.SDL_GetTicks()
 
-            for {
-                if quit {
-                    break
-                }
-
+            for !quit {
                 for {
                     if sdl.SDL_PollEvent(evt) != 0 {
                         if evt.type_value == C.SDL_QUIT {
