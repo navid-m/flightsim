@@ -164,7 +164,7 @@ fn release_view_sprites() void = {
 }
 
 fn draw_sky_gradient(horizon: i32, heading: f64) void = trust {
-    val y: mut i32 = 0 as i32
+    val y: mut i32 = 0
     for y < consts.SCREEN_HEIGHT {
         val t: f64 = (y as f64) / (consts.SCREEN_HEIGHT as f64)
         val upper_glow: f64 = 0.5 + 0.5 * math.cos(t * math_static.PI)
@@ -176,7 +176,7 @@ fn draw_sky_gradient(horizon: i32, heading: f64) void = trust {
         y += 4 as i32
     }
 
-    val band_y: mut i32 = 0 as i32
+    val band_y: mut i32 = 0
     for band_y < horizon {
         val yf: f64 = band_y as f64
         val drift: f64 = heading * 0.16
@@ -254,7 +254,7 @@ fn draw_mountains(horizon: i32, heading: f64) void = trust {
         x0 += 2 as i32
     }
 
-    val x1: mut i32 = 0 as i32
+    val x1: mut i32 = 0
     for x1 < consts.SCREEN_WIDTH {
         val xf1: f64 = x1 as f64
         val crest1: i32 =
@@ -270,7 +270,7 @@ fn draw_mountains(horizon: i32, heading: f64) void = trust {
 
 fn draw_stars(horizon: i32, heading: f64) void = trust {
     val star_shift: i32 = (heading * 40.0) as i32
-    val i: mut i32 = 0 as i32
+    val i: mut i32 = 0
     for i < consts.STAR_COUNT {
         val base_x: i32 = ((i * (197 as i32)) + ((i * i) / (7 as i32)) + (73 as i32)) % consts.SCREEN_WIDTH
         val base_y: i32 = (24 as i32) + (((i * (151 as i32)) + ((i * (19 as i32)) % (173 as i32))) % (consts.SCREEN_HEIGHT / (2 as i32) - (72 as i32)))
@@ -312,7 +312,7 @@ fn draw_engine_particles(horizon: i32) void = trust {
     val cx: i32 = get_plane_overlay_x()
     val cy: i32 = get_plane_overlay_y(horizon)
     val speed_ratio: f64 = math.clamp01((g_plane.speed - consts.MIN_SPEED) / (consts.MAX_SPEED - consts.MIN_SPEED))
-    val i: mut i32 = 0 as i32
+    val i: mut i32 = 0
     for i < consts.EXHAUST_PARTICLE_COUNT {
         val cycle: i32 = (((g_world_time * (460.0 + speed_ratio * 180.0)) as i32) + i * (29 as i32)) % (100 as i32)
         val age: f64 = cycle as f64 / 100.0
@@ -353,7 +353,7 @@ fn render_ground(horizon: i32, cam_x: f64, cam_z: f64, cam_alt: f64, heading: f6
         val center_z: f64 = cam_z + forward_z * depth_base
         val half_width: f64 = depth_base * 1.34 + 24.0
 
-        val x: mut i32 = 0 as i32
+        val x: mut i32 = 0
         for x < consts.SCREEN_WIDTH {
             val t: f64 = (((x + consts.GROUND_SEGMENT / (2 as i32)) as f64) / (consts.SCREEN_WIDTH as f64)) * 2.0 - 1.0
             val wx: f64 = center_x + right_x * half_width * t
